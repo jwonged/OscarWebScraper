@@ -1,4 +1,6 @@
 # OscarWebScraper
 
-For scraping topic base
-Main function is run from topic3_topictotal at the moment
+Web Scraper (using BeautifulSoup) for scraping posts from the Mumsnet Forums.
+
+To scrape a topic, from topic3_topictotal call scrapeWholeTopic(topicLink) with topicLink = url of topic to scrape
+
