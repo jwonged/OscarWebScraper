@@ -250,12 +250,6 @@ topicLink = 'https://www.mumsnet.com/Talk/substance_addiction_' #1935.8s
 #getAllPostsInThread(link, topicLink)
 #scrapeWholeTopic(topicLink)
 
-#scrapeWholeTopic('https://www.mumsnet.com/Talk/alcohol_support') 
-#scrapeWholeTopic('https://www.mumsnet.com/Talk/allergies') 
-#scrapeWholeTopic('https://www.mumsnet.com/Talk/child_adolescent_mental_health') 
-#scrapeWholeTopic('https://www.mumsnet.com/Talk/childrens_health') 
-#scrapeWholeTopic('https://www.mumsnet.com/Talk/dementia') 
-
 scrapeWholeTopic('https://www.mumsnet.com/Talk/adoptions')
 scrapeWholeTopic('https://www.mumsnet.com/Talk/antenatal_clubs')
 scrapeWholeTopic('https://www.mumsnet.com/Talk/antenatal_tests_choices')
