@@ -1,13 +1,19 @@
 # -*- coding: utf8 -*-
 import requests
+import re
 import bs4
 import sys
 import csv
 import codecs
+import spellchecking
 
 #map non unicode values 
 non_bmp_map = dict.fromkeys(range(0x10000,sys.maxunicode+1),0xfffd)
 errors = 0
+
+getDayOfWeek = {'Mon':1,'Tue':2,'Wed':3,'Thu':4,'Fri':5,'Sat':6,'Sun':7}
+getMonth = {'Jan':1,'Feb':2,'Mar':3,'Apr':4,'May':5,'Jun':6,'Jul':7, 'Aug':8,'Sep':9,'Oct':10,'Nov':11,'Dec':12}
+
 
 #download webpage - input = webpage link
 #output requests.models.response object
@@ -21,31 +27,36 @@ def download(link):
     return res
 
 #Take parameters as input, print as row in csv
-def outputToCSV(nick,time,text,bagOfWords,label):
-    if outputWriter.writerow([nick,time,text,bagOfWords,label])==0:
-        return False
-    return True
+def outputToCSV(outputList):
+    return outputWriter.writerow(outputList)!=0
     
+
+wordBagFile = open('english.txt', 'r')
+wordBag = wordBagFile.readlines()
+def turnToBagOfWords(textList):
+    global wordBag
     
-def turnToBagOfWords(text):
-    #TODO: take as input post text
-    #return bag of words vector
-    return text
+    #count occurences of each word and return list of strings of count
+    output = []
+    for i in range(len(wordBag)):
+         count = textList.count(wordBag[i].strip('\n'))
+         output.append(str(count))
+    return output
 
-def spellCheck(text):
-    #TODO: spell check
-    return text
 
-def labelling(text):
-    if 'depressed' in text:
-        return True
-    return False
-
+#global variables to store depressed words
+depressedFile = open('depressedwords.txt', 'r')
+depressedContents = depressedFile.readlines()
+def labelPost(postText): 
+    global depressedContents
+    for i in range(len(depressedContents)):
+         if depressedContents[i].strip('\n') in postText:
+                return '1'
+    return '0'
 
 #parse the goodies and get posts from page - this is for post page
 #eg 'https://www.mumsnet.com/Talk/substance_addiction_/2850457-Professor-White-and-the-line-dancing-surfers-eat-cold-turkey'
 #take as input a link to a page of posts, output: nick, time, text
-
 def getPage(aPage):
     global posts
     
@@ -54,29 +65,49 @@ def getPage(aPage):
         posts = posts + 1
         #Parse & break apart object
         nick = post[i].select('.nick')[0].getText()
-        time = post[i].select('.post_time')[0].getText()
+        rawTime = post[i].select('.post_time')[0].getText()
         text = post[i].select('p')[0].getText()
         
         #encode and decode to completely ascii text
         textMapped = text.translate(non_bmp_map) #map emojis
         textMapped = textMapped.encode('ascii',errors='ignore')
         textMapped = textMapped.decode('ascii')
+
+        #split date
+        dateContents = rawTime.split()
+        if (len(dateContents)==3):
+            date = dateContents[1].split('-')
+            time = dateContents[2].split(':')
+
+            dayOfWeek = str(getDayOfWeek[dateContents[0]])
+            dayOfMonth = str(date[0])
+            month = str(getMonth[date[1]])
+            hour = str(time[0])
+
+        else:
+            print('Date error!')
+            return
         
         #spellcheck, vectorize and label
-        checkedText = spellCheck(textMapped)
-        bagOfWords = turnToBagOfWords(textMapped)
-        label = labelling(textMapped)
+        checkedText = spellchecking.checkText(textMapped) #returns text
+        textList = re.sub("[^a-zA-Z]", " ", text).lower().split()
+        bagOfWords = turnToBagOfWords(textList) #returns a list
+        label = labelPost(checkedText) #returns 1 or 0
         
         #print all dem depressed peeeps
         print('nickname: '+nick)
-        print('time: '+time)
-        print('text: '+textMapped)
+        print('time: '+rawTime)
+        print('text: '+checkedText)
         print('\n')
+
+        #form up output list - nickname
+        outputList = [hour,dayOfWeek,dayOfMonth,month]+bagOfWords+[label]
+        #outputList.append(bagOfWords).append(label)
 
     ######################comment out for testing this function
         #Send row to csv
-        if not outputToCSV(nick,time,textMapped,bagOfWords, label):
-           print('Error!')
+        if not outputToCSV(outputList):
+           print('CSV Print Error!')
             #errors += 1
 
 #######getPage test
@@ -109,7 +140,7 @@ def getNextPage(aPage,topicLink):
 
     #get link of next page if not at last page
     if currentPage < totalPages:
-        nextPage = msgPages[0].select('a[title="Next page"]')[0]
+        nextPage = msgPages[0].select('a[title=\"Next page\"]')[0]
         link = topicLink+'/'+nextPage.get('href')
         return link
     elif currentPage == totalPages:
@@ -209,17 +240,32 @@ def readFromCSV(fileName):
 #################################MAIN########################
 outputFile = open('output.csv', 'w', newline='')
 outputWriter = csv.writer(outputFile)
-outputToCSV('nickname','time','Post','Bag Of Words', 'Label')
+headers = ['hour','dayOfWeek','dayOfMonth','month','BagOfWords']
+outputToCSV(headers)
 posts = 0
 #getPage('https://www.mumsnet.com/Talk/substance_addiction_/2850457-Professor-White-and-the-line-dancing-surfers-eat-cold-turkey')
 #TODO: all other functions run here
 #link = 'https://www.mumsnet.com/Talk/substance_addiction_/2850457-Professor-White-and-the-line-dancing-surfers-eat-cold-turkey'
-topicLink = 'https://www.mumsnet.com/Talk/substance_addiction_'
+topicLink = 'https://www.mumsnet.com/Talk/substance_addiction_' #1935.8s
 #getAllPostsInThread(link, topicLink)
-scrapeWholeTopic(topicLink)
+#scrapeWholeTopic(topicLink)
+
+#scrapeWholeTopic('https://www.mumsnet.com/Talk/alcohol_support') 
+#scrapeWholeTopic('https://www.mumsnet.com/Talk/allergies') 
+#scrapeWholeTopic('https://www.mumsnet.com/Talk/child_adolescent_mental_health') 
+#scrapeWholeTopic('https://www.mumsnet.com/Talk/childrens_health') 
+#scrapeWholeTopic('https://www.mumsnet.com/Talk/dementia') 
+
+scrapeWholeTopic('https://www.mumsnet.com/Talk/adoptions')
+scrapeWholeTopic('https://www.mumsnet.com/Talk/antenatal_clubs')
+scrapeWholeTopic('https://www.mumsnet.com/Talk/antenatal_tests_choices')
+scrapeWholeTopic('https://www.mumsnet.com/Talk/antenatal_postnatal_depression')
+scrapeWholeTopic('https://www.mumsnet.com/Talk/birth_announcements')
 
 print('Posts'+str(posts))
 print('Done scraping '+topicLink)
+wordBagFile.close()
+depressedFile.close()
 outputFile.close()
 #print('Errors '+str(errors))
 #############################CLOSE###########################
